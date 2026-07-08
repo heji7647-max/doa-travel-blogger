@@ -1,3 +1,17 @@
+# -*- coding: utf-8 -*-
+"""
+===================================================================
+[Version Info]
+- Current Version: v2.5.5 (최종 프롬프트/가변형 Q&A 동기화 매스터본)
+- Last Updated: 2026. 07. 08
+- Updates:
+  1. 기존 UI 및 이중 프리셋 로더 가드(my_style.txt & doa_filter_prompt.txt) 완벽 유지
+  2. TITLE_GENERATION_RULES 및 가변형 Q&A 규칙을 프롬프트 파일 지침에 완전 매핑
+  3. 멀티모달 이미지 객체 인식 및 자연스러운 플레이스홀더 배치 로직 싱크 패치
+  4. 모델 버전을 공식 레퍼런스 규격(gemini-3.5-flash)으로 최적화 교정
+===================================================================
+"""
+
 import streamlit as st
 import os
 from google import genai
@@ -50,9 +64,11 @@ with st.sidebar:
         
     st.markdown("[Google AI Studio](https://aistudio.google.com/)에서 무료 키를 발급받을 수 있습니다.")
     st.divider()
-    st.markdown("🎯 **최종 버전 치트키**\n"
-                "- 프롬프트 가이드라인 파일(`doa_filter_prompt.txt`)을 분리하여 유지 관리가 편리합니다.\n"
-                "- 디테일한 에피소드 인풋 항목이 가미되어 기계적인 문체를 완전히 탈피합니다.")
+    st.markdown("🎯 **최종 버전 치트키 가동중**\n"
+                "- 외부 가이드 파일(`doa_filter_prompt.txt`) 규칙에 맞춰 포스팅이 구성됩니다.\n"
+                "- 4가지 후킹 제목 스타일 무작정 랜덤 다변화 선택 엔진 구축.\n"
+                "- 고정 Q&A 탈피: 장소 카테고리와 데이터에 맞춰 유기적인 가변 질문 조립.\n"
+                "- 이미지 입력 시 멀티모달 시각 분석 후 본문 맥락 일치 묘사 자동 싱크.")
 
 # ==========================================
 # 📍 3. 메인 화면 레이아웃 및 입력 폼
@@ -136,7 +152,7 @@ with col2:
         ["1000자 내외", "500자 내외", "800자 내외", "1500자 내외"]
     )
     
-    layout_style = "PC 최적화형 (문단 구분이 깔끔한 긴 줄글 스타일)" if st.radio("가독성 최적화 옵션", ["모바일 최적화 (잦은 줄바꿈 형태)", "PC 최적화 (줄글 형태)"]) == "PC 최적화 (줄글 형태)" else "모바일 최적화형 (1~2줄마다 엔터, 호흡이 짧아 스크롤에 최적화된 스마트에디터 스타일)"
+    layout_style = "PC 최적화형 (문단 구분이 깔끔한 긴 줄글 스타일)" if st.radio("가독성 최적화 옵션", ["모바일 최적화 (잦은 줄바꿈 형태)", "PC 최적화 (줄글 형태)"]) == "PC 최적화 (줄글 형태)" else "모바일 최적화형 (1~2줄마다 엔터, 호혹이 짧아 스크롤에 최적화된 스마트에디터 스타일)"
     
     use_preset = st.checkbox("🌟 사전 저장된 내 말투 가져오기 (my_style.txt 연동)", value=True)
     
@@ -180,7 +196,7 @@ if st.button("🔥 상위 노출 & 홈판 저격 포스팅 생성하기", type="
                 # 외부 파일에서 도아 필터 핵심 프롬프트 가이드라인 로드
                 system_instruction = load_doa_filter_prompt()
                 
-                # 유저 인풋 메타 데이터를 통합 가공
+                # 유저 인풋 메타 데이터를 통합 가공 (가변형 Q&A 제어용 메타 요소 완벽 포함)
                 user_context_prompt = f"""
                 [세부 여행 메타 데이터]
                 - 여행지/장소: {location}
@@ -200,6 +216,7 @@ if st.button("🔥 상위 노출 & 홈판 저격 포스팅 생성하기", type="
                 [스타일 지침]
                 - 분량 타겟: {length}
                 - 가독성 레이아웃 스타일: {layout_style}
+                - 제공된 사진 데이터 개수: {len(images)}개
                 """
                 
                 if sample_text.strip():
@@ -214,12 +231,14 @@ if st.button("🔥 상위 노출 & 홈판 저격 포스팅 생성하기", type="
                 
                 contents = [user_context_prompt] + images
                 
-                # 제미나이 호출 시 외부에서 가져온 지침을 config의 system_instruction으로 전달
+                # 제미나이 호출 시 외부에서 가져온 유연한 수익화 프롬프트를 system_instruction으로 완전 전송
                 response = client.models.generate_content(
                     model='gemini-3.5-flash',
                     contents=contents,
                     config=types.GenerateContentConfig(
-                        system_instruction=system_instruction
+                        system_instruction=system_instruction,
+                        temperature=0.75,
+                        top_p=0.9
                     )
                 )
                 
